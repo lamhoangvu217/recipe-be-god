@@ -121,3 +121,42 @@ func SearchRecipesService(query string) ([]models.Recipe, error) {
 
 	return matchedRecipes, nil
 }
+
+func SearchRecipesByCuisineServices(cuisineId uint, query string) ([]models.Recipe, error) {
+	// First, get recipes by cuisine ID
+	var recipesInCuisine []models.Recipe
+	if err := database.DB.Where("cuisine_id = ?", cuisineId).Preload("Cuisine").Find(&recipesInCuisine).Error; err != nil {
+		return nil, err
+	}
+
+	// Then apply search filtering
+	var matchedRecipes []models.Recipe
+	normalizedQuery := utils.RemoveVietnameseTones(strings.TrimSpace(query))
+
+	for _, recipe := range recipesInCuisine {
+		// Try exact matching first
+		normalizedName := utils.RemoveVietnameseTones(recipe.Name)
+		if strings.Contains(normalizedName, normalizedQuery) {
+			matchedRecipes = append(matchedRecipes, recipe)
+			continue
+		}
+
+		// Try fuzzy matching if exact match fails
+		if utils.LevenshteinDistance(normalizedName, normalizedQuery) <= MaxLevenshteinDistance {
+			matchedRecipes = append(matchedRecipes, recipe)
+			continue
+		}
+
+		// Check ingredients
+		for _, ingredient := range recipe.Ingredients {
+			normalizedIngredient := utils.RemoveVietnameseTones(ingredient)
+			if strings.Contains(normalizedIngredient, normalizedQuery) ||
+				utils.LevenshteinDistance(normalizedIngredient, normalizedQuery) <= MaxLevenshteinDistance {
+				matchedRecipes = append(matchedRecipes, recipe)
+				break
+			}
+		}
+	}
+
+	return matchedRecipes, nil
+}

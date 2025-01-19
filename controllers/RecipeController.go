@@ -9,39 +9,48 @@ import (
 	"recipe-be-god/models"
 	"recipe-be-god/services"
 	"strconv"
+	"strings"
 )
 
 func GetRecipesByCuisine(c *fiber.Ctx) error {
 	cuisineIdStr := c.Query("cuisineId")
-	searchQueryStr := c.Query("search")
+	searchQuery := strings.TrimSpace(c.Query("search"))
+
 	var recipes []models.Recipe
 	var err error
-	// Convert categoryId from string to uint
-	if cuisineIdStr == "" {
-		// if has search query
-		if searchQueryStr == "" {
-			recipes, err = services.GetAllRecipesService()
-		} else {
-			// search function
-			recipes, err = services.SearchRecipesService(searchQueryStr)
-		}
 
-	} else {
-		// Convert cuisineId from string to uint
+	// If we have both cuisine ID and search query
+	if cuisineIdStr != "" && searchQuery != "" {
 		cuisineId, err := strconv.ParseUint(cuisineIdStr, 10, 32)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "invalid cuisine id",
 			})
 		}
-		// Get recipes by cuisine id
+		recipes, err = services.SearchRecipesByCuisineServices(uint(cuisineId), searchQuery)
+	} else if cuisineIdStr != "" {
+		// Only cuisine filter
+		cuisineId, err := strconv.ParseUint(cuisineIdStr, 10, 32)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "invalid cuisine id",
+			})
+		}
 		recipes, err = services.GetRecipesByCuisineIdService(uint(cuisineId))
+	} else if searchQuery != "" {
+		// Only search query
+		recipes, err = services.SearchRecipesService(searchQuery)
+	} else {
+		// No filters - return all recipes
+		recipes, err = services.GetAllRecipesService()
 	}
+
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
+
 	return c.JSON(fiber.Map{
 		"message": "get recipes successfully",
 		"recipes": recipes,
