@@ -6,4 +6,6 @@ type Recipe struct {
 	Ingredients  []string `gorm:"serializer:json" json:"ingredients"`
 	Instructions []string `gorm:"serializer:json" json:"instructions"`
 	ImageUrl     string   `gorm:"type:text;not null" json:"imageUrl"`
+	CuisineID    uint     `gorm:"not null" json:"cuisineID"`
+	Cuisine      Cuisine  `gorm:"foreignKey:CuisineID" json:"-"`
 }
